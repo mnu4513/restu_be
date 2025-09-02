@@ -95,8 +95,8 @@ exports.updateStatus = async (req, res) => {
     // ✅ Send email to user only on Delivered / Cancelled
     if (status === "Delivered") {
       await sendEmail(
-        // order.user.email,
-        "lappu.singh@yandex.com",
+        order.user.email,
+        // "lappu.singh@yandex.com",
         "🎉 Your Order Has Been Delivered!",
         `
         <h2>Hi ${order.user.name},</h2>
@@ -107,8 +107,8 @@ exports.updateStatus = async (req, res) => {
       );
     } else if (status === "Cancelled") {
       await sendEmail(
-        // order.user.email,
-        "lappu.singh@yandex.com",
+        order.user.email,
+        // "lappu.singh@yandex.com",
         "❌ Your Order Has Been Cancelled",
         `
         <h2>Hi ${order.user.name},</h2>

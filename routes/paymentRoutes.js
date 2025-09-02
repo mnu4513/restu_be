@@ -110,8 +110,8 @@ emitOrderUpdate(order.user._id.toString(), populatedOrder);
 
     // send notification mail to user 
     await sendEmail(
-  // req.user.email,
-  "lappu.singh@yandex.com",
+  req.user.email,
+  // "lappu.singh@yandex.com",
   "Your Order Has Been Placed ✅",
   `
   <h2>Thank you for your order!</h2>

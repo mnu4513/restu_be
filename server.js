@@ -1,9 +1,9 @@
-
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const morgan = require("morgan");
 const connectDB = require("./config/db");
+const http = require("http");
 
 dotenv.config();
 const app = express();
@@ -20,22 +20,21 @@ const adminRoutes = require("./routes/adminRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const addressRoutes = require("./routes/addressRoutes");
 
-
 app.use("/api/auth", authRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/order", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/addresses", addressRoutes);
+
 app.get("/", (req, res) => res.send("API Running..."));
-app.all('/*', (req, res) => {
-  try {
-    res.status(404).json({ message: "URL not found! ##########" });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+
+const server = http.createServer(app);
+
+// ✅ Import socket.js and init
+const { initSocket } = require("./socket");
+initSocket(server);
 
 connectDB();
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

@@ -1,45 +1,61 @@
 const Order = require("../models/Order");
 const Menu = require("../models/Menu");
+const Address = require("../models/Address");
+const { emitOrderUpdate } = require("../socket");
+
 
 // @desc Place new order
 // @route POST /api/orders
 exports.placeOrder = async (req, res) => {
-  const { items } = req.body; // [{ menuItem, quantity }]
+  const { items, addressId } = req.body; // addressId from frontend
+
   try {
-    // fetch all menu items in parallel
+    // ✅ Find address (must belong to this user)
+    const address = await Address.findOne({ _id: addressId, user: req.user._id });
+    if (!address) {
+      return res.status(400).json({ message: "Invalid address" });
+    }
+
+    // ✅ fetch all menu items
     const menuItems = await Promise.all(
-      items?.map((i) => Menu.findById(i.menuItem))
+      items.map((i) => Menu.findById(i.menuItem))
     );
 
     let totalPrice = 0;
     for (let index = 0; index < items.length; index++) {
       const menuItem = menuItems[index];
       if (!menuItem) {
-        return res
-          .status(404)
-          .json({ message: `Menu item not found: ${items[index].menuItem}` });
+        return res.status(404).json({ message: `Menu item not found: ${items[index].menuItem}` });
       }
       totalPrice +=
-        (menuItem.price -
-          (menuItem.price * (menuItem.discount || 0)) / 100) *
+        (menuItem.price - (menuItem.price * (menuItem.discount || 0)) / 100) *
         items[index].quantity;
     }
 
+    // ✅ Save order with address snapshot
     const order = new Order({
-  user: req.user._id,
-  items: items.map(i => ({ menuItem: i._id, quantity: i.quantity })),
-  totalPrice,
-  status: "Pending",
-  deliveryAddress: req.body.deliveryAddress  // ✅ user-selected address snapshot
-});
-
+      user: req.user._id,
+      items: items.map(i => ({ menuItem: i.menuItem, quantity: i.quantity })),
+      totalPrice,
+      status: "Pending",
+      deliveryAddress: {
+        label: address.label,
+        addressLine: address.addressLine,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        location: address.location
+      }
+    });
 
     await order.save();
+    emitOrderUpdate(order.user.toString(), order);
     res.status(201).json(order);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // @desc Cancel order (within 2 mins)
 // @route PUT /api/orders/:id/cancel

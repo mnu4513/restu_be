@@ -1,8 +1,8 @@
+// controllers/authController.js
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const axios = require("axios");
-const { sendEmail } = require("../utils/email");
 
 let otpStore = {}; // in-memory OTP store for testing; use Redis in production
 
@@ -12,42 +12,78 @@ const generateToken = (id) =>
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 // Basic throttle: allow OTP request every 60s per phone (for testing)
-const canRequestOtp = (email) => {
-  const rec = otpStore[email];
+const canRequestOtp = (phone) => {
+  const rec = otpStore[phone];
   if (!rec) return true;
   return Date.now() - (rec.lastRequestedAt || 0) > 60 * 1000;
 };
 
+// Validate/normalize phone (basic). You should use libphonenumber for robust validation.
+const normalizePhone = (raw) => {
+  if (!raw) return null;
+  return String(raw).trim(); // expect E.164 like +919876543210
+};
+
+/**
+ * Send OTP via Meta WhatsApp Cloud API
+ * Required env:
+ *  - WHATSAPP_TOKEN  (permanent token or app token)
+ *  - WHATSAPP_PHONE_NUMBER_ID (phone number id from business manager)
+ */
 exports.sendOtp = async (req, res) => {
   try {
-    const { email } = req.body;
-    console.log(email)
-    if (!email) return res.status(400).json({ success: false, message: "E-mail required" });
+    const { number } = req.body;
+    if (!number) return res.status(400).json({ success: false, message: "Phone number required" });
 
-    if (!canRequestOtp(email)) {
+    const phone = normalizePhone(number);
+    if (!phone) return res.status(400).json({ success: false, message: "Invalid phone number" });
+
+    if (!canRequestOtp(phone)) {
       return res.status(429).json({ success: false, message: "OTP recently requested. Please wait a bit." });
     }
 
     const otp = generateOtp();
     const expires = Date.now() + 5 * 60 * 1000; // 5 minutes TTL
 
-    otpStore[email] = {
+    otpStore[phone] = {
       otp: Number(otp),
       expires,
       attempts: 0,
       lastRequestedAt: Date.now(),
     };
 
-    await sendEmail(
-            email,
-            "OTP for registration",
-            `
-            <h2>Hi, Your OTP for registration is: ${otp}.</h2>
-            <p>OTP will be expired in 5 minutes.</p>
-            `
-          );
+    // If testing locally without meta credentials, don't call API but return success.
+    const token = process.env.WHATSAPP_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    console.log(token, phoneNumberId)
+    if (!token || !phoneNumberId) {
+      console.warn("WHATSAPP_TOKEN or WHATSAPP_PHONE_NUMBER_ID not set — OTP generated but not sent:", otp);
+      return res.json({
+        success: true,
+        message: "OTP generated (WHATSAPP not configured). In production the OTP will be sent via WhatsApp.",
+      });
+    }
 
-    return res.json({ success: true, message: "OTP sent via E-mail" });
+    // Build Meta WhatsApp Cloud API request
+    const endpoint = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+    const body = {
+      messaging_product: "whatsapp",
+      to: phone, // must be in E.164 format with +countrycode
+      type: "text",
+      text: {
+        body: `Your verification code is ${otp}. It will expire in 5 minutes. Do not share this code with anyone.`,
+      },
+    };
+
+    // Send the message
+    await axios.post(endpoint, body, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    return res.json({ success: true, message: "OTP sent via WhatsApp" });
   } catch (err) {
     console.error("sendOtp error:", err?.response?.data || err?.message || err);
     return res.status(500).json({ success: false, message: "Failed to send OTP" });
@@ -56,27 +92,28 @@ exports.sendOtp = async (req, res) => {
 
 exports.verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    if (!email) return res.status(400).json({ success: false, message: "E-mail required" });
+    const { number, otp } = req.body;
+    if (!number) return res.status(400).json({ success: false, message: "Phone number required" });
     if (!otp) return res.status(400).json({ success: false, message: "OTP required" });
-    const record = otpStore[email];
-    console.log(otpStore)
-    if (!record) return res.status(400).json({ success: false, message: "OTP not requested for this E-mail or expired" });
+
+    const phone = normalizePhone(number);
+    const record = otpStore[phone];
+    if (!record) return res.status(400).json({ success: false, message: "OTP not requested for this number" });
 
     if (Date.now() > record.expires) {
-      delete otpStore[email];
+      delete otpStore[phone];
       return res.status(400).json({ success: false, message: "OTP expired" });
     }
 
     // increment attempts and possibly lock after too many tries
     record.attempts = (record.attempts || 0) + 1;
     if (record.attempts > 10) {
-      delete otpStore[email];
+      delete otpStore[phone];
       return res.status(429).json({ success: false, message: "Too many attempts. Request a new OTP." });
     }
 
     if (Number(otp) === Number(record.otp)) {
-      delete otpStore[email];
+      delete otpStore[phone];
       return res.json({ success: true, message: "OTP verified successfully" });
     } else {
       return res.status(400).json({ success: false, message: "Invalid OTP" });

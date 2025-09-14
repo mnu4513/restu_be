@@ -116,7 +116,7 @@ exports.updateStatus = async (req, res) => {
       );
     }
 
-        // ✅ Send email to admin only on Delivered / Cancelled
+    // ✅ Send email to admin only on Delivered / Cancelled
     if (status === "Delivered") {
       await sendEmail(
         "fkkhem@gmail.com",

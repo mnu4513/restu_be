@@ -1,24 +1,18 @@
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
-const transporter = nodemailer.createTransport({
-  service: "gmail", // or "hotmail", "yahoo", or custom SMTP
-  auth: {
-    user: process.env.EMAIL_USER, // your email
-    pass: process.env.EMAIL_PASS, // app password
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// send email helper
 exports.sendEmail = async (to, subject, html) => {
   try {
-    await transporter.sendMail({
-      from: `"My Restaurant" <${process.env.EMAIL_USER}>`,
+    await resend.emails.send({
+      from: "shop@infounix.com",
       to,
       subject,
       html,
     });
-    console.log("✅ Email sent to:", to);
-  } catch (err) {
-    console.error("❌ Email Error:", err);
+
+    console.log("✅ Email sent");
+  } catch (error) {
+    console.error("❌ Email Error:", error);
   }
 };

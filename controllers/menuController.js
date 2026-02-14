@@ -27,16 +27,16 @@ exports.addMenuItem = async (req, res) => {
     } = req.body;
 
     if (!name?.trim())
-      return res.status(400).json({ message: "Item name is required" });
+      return res.status(400).json({ success: false, message: "Item name is required" });
 
     if (!description?.trim())
-      return res.status(400).json({ message: "Item description is required" });
+      return res.status(400).json({ success: false, message: "Item description is required" });
 
     if (price === undefined || price === null)
-      return res.status(400).json({ message: "Item price is required" });
+      return res.status(400).json({ success: false, message: "Item price is required" });
 
     if (!thumbnail)
-      return res.status(400).json({ message: "Thumbnail is required" });
+      return res.status(400).json({ success: false, message: "Thumbnail is required" });
 
     const newItem = await Menu.create({
       name: name.trim(),
@@ -52,7 +52,7 @@ exports.addMenuItem = async (req, res) => {
     res.status(201).json(newItem);
   } catch (err) {
     console.error("🔥 Add Menu Error:", err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

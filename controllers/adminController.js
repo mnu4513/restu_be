@@ -10,7 +10,7 @@ exports.getAllUsers = async (req, res) => {
     const users = await User.find().select("-password");
     res.json(users);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -62,7 +62,7 @@ exports.getAllOrders = async (req, res) => {
       total,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false,  message: err.message });
   }
 };
 
@@ -76,7 +76,7 @@ exports.updateStatus = async (req, res) => {
     let order = await Order.findById(req.params.id).populate("user", "name email");
 
     if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
     order.status = status;
@@ -143,7 +143,7 @@ exports.updateStatus = async (req, res) => {
 
     res.json({ success: true, order });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

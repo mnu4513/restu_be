@@ -21,7 +21,7 @@ exports.addAddress = async (req, res) => {
 
     res.status(201).json(address);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -32,7 +32,7 @@ exports.getAddresses = async (req, res) => {
     const addresses = await Address.find({ user: req.user._id });
     res.json(addresses);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -40,7 +40,7 @@ exports.getAddresses = async (req, res) => {
 exports.updateAddress = async (req, res) => {
   try {
     const address = await Address.findOne({ _id: req.params.id, user: req.user._id });
-    if (!address) return res.status(404).json({ message: "Address not found" });
+    if (!address) return res.status(404).json({ success: false, message: "Address not found" });
 
     if (req.body.isDefault) {
       await Address.updateMany({ user: req.user._id }, { isDefault: false });
@@ -50,7 +50,7 @@ exports.updateAddress = async (req, res) => {
     await address.save();
     res.json(address);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -58,10 +58,10 @@ exports.updateAddress = async (req, res) => {
 exports.deleteAddress = async (req, res) => {
   try {
     const address = await Address.findOneAndDelete({ _id: req.params.id, user: req.user._id });
-    if (!address) return res.status(404).json({ message: "Address not found" });
+    if (!address) return res.status(404).json({ success: false, message: "Address not found" });
     res.json({ message: "Address deleted" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -71,7 +71,7 @@ exports.getDefaultAddress = async (req, res) => {
     const address = await Address.findOne({ user: req.user._id, isDefault: true });
     res.json(address);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -89,9 +89,9 @@ exports.setDefaultAddress = async (req, res) => {
       { new: true }
     );
 
-    if (!updated) return res.status(404).json({ message: "Address not found" });
+    if (!updated) return res.status(404).json({ success: false, message: "Address not found" });
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };

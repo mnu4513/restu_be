@@ -13,7 +13,7 @@ exports.placeOrder = async (req, res) => {
     // ✅ Find address (must belong to this user)
     const address = await Address.findOne({ _id: addressId, user: req.user._id });
     if (!address) {
-      return res.status(400).json({ message: "Invalid address" });
+      return res.status(400).json({ success: false, message: "Invalid address" });
     }
 
     // ✅ fetch all menu items
@@ -25,7 +25,7 @@ exports.placeOrder = async (req, res) => {
     for (let index = 0; index < items.length; index++) {
       const menuItem = menuItems[index];
       if (!menuItem) {
-        return res.status(404).json({ message: `Menu item not found: ${items[index].menuItem}` });
+        return res.status(404).json({ success: false, message: `Menu item not found: ${items[index].menuItem}` });
       }
       totalPrice +=
         (menuItem.price - (menuItem.price * (menuItem.discount || 0)) / 100) *
@@ -52,7 +52,7 @@ exports.placeOrder = async (req, res) => {
     emitOrderUpdate(order.user.toString(), order);
     res.status(201).json(order);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -62,10 +62,10 @@ exports.placeOrder = async (req, res) => {
 exports.cancelOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (!order) return res.status(404).json({ success: false, message: "Order not found" });
 
     if (order.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not your order" });
+      return res.status(403).json({ success: false, message: "Not your order" });
     }
 
     const diff =
@@ -73,7 +73,7 @@ exports.cancelOrder = async (req, res) => {
     if (diff > 2) {
       return res
         .status(400)
-        .json({ message: "Cancel time expired (2 minutes passed)" });
+        .json({ success: false, message: "Cancel time expired (2 minutes passed)" });
     }
 
     order.status = "Cancelled";
@@ -81,7 +81,7 @@ exports.cancelOrder = async (req, res) => {
 
     res.json(order);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -94,6 +94,6 @@ exports.getUserOrders = async (req, res) => {
     .sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };

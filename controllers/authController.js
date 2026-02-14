@@ -18,12 +18,20 @@ const canRequestOtp = (email) => {
 
 exports.sendOtp = async (req, res) => {
   try {
-    const { email } = req.body;
-    console.log(email)
-    if (!email) return res.status(400).json({ success: false, message: "E-mail required" });
+    const { email, name } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: "E-mail required" });
+    }
+
+    if (!name) {
+      return res.status(400).json({ success: false, message: "Name required" });
+    }
 
     if (!canRequestOtp(email)) {
-      return res.status(429).json({ success: false, message: "OTP recently requested. Please wait a bit." });
+      return res.status(429).json({
+        success: false,
+        message: "OTP recently requested. Please wait a bit.",
+      });
     }
 
     const otp = generateOtp();
@@ -36,21 +44,70 @@ exports.sendOtp = async (req, res) => {
       lastRequestedAt: Date.now(),
     };
 
-    await sendEmail(
-            email,
-            "OTP for registration",
-            `
-            <h2>Hi, Your OTP for registration is: ${otp}.</h2>
-            <p>OTP will be expired in 5 minutes.</p>
-            `
-          );
+    // ✅ Professional HTML Email Template
+    const emailHtml = `
+    <div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:40px 0;">
+      <div style="max-width:500px; margin:auto; background:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+        
+        <!-- Header -->
+        <div style="background:#2563eb; color:white; text-align:center; padding:20px;">
+          <h2 style="margin:0;">Account Verification</h2>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:30px; color:#333;">
+          <p style="font-size:16px;">Hello <strong>${name}</strong>,</p>
+
+          <p style="font-size:15px;">
+            Thank you for registering with us. Please use the One-Time Password (OTP) below to complete your registration.
+          </p>
+
+          <!-- OTP Box -->
+          <div style="text-align:center; margin:30px 0;">
+            <div style="
+              display:inline-block;
+              background:#f1f5f9;
+              padding:15px 30px;
+              font-size:28px;
+              font-weight:bold;
+              letter-spacing:4px;
+              border-radius:8px;
+              color:#111827;
+            ">
+              ${otp}
+            </div>
+          </div>
+
+          <p style="font-size:14px; color:#555;">
+            This OTP is valid for <strong>10 minutes</strong>. Please do not share it with anyone.
+          </p>
+
+          <p style="font-size:14px; color:#555;">
+            If you did not request this OTP, please ignore this email.
+          </p>
+
+          <p style="margin-top:30px;">Best regards,<br><strong>Your Company Team</strong></p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background:#f9fafb; text-align:center; padding:15px; font-size:12px; color:#888;">
+        <a href="https://restufe.vercel.app" target=_blank>© ${new Date().getFullYear()} Your Company. All rights reserved.</a>
+        </div>
+
+      </div>
+    </div>
+    `;
+
+    await sendEmail(email, "Your OTP for Registration", emailHtml);
 
     return res.json({ success: true, message: "OTP sent via E-mail" });
+
   } catch (err) {
     console.error("sendOtp error:", err?.response?.data || err?.message || err);
     return res.status(500).json({ success: false, message: "Failed to send OTP" });
   }
 };
+
 
 exports.verifyOtp = async (req, res) => {
   try {
@@ -125,7 +182,7 @@ exports.loginUser = async (req, res) => {
 
     let user = await User.findOne({ email });
     if (!user) user = await User.findOne({ number: email }); // allow login with phone or email in same field
-console.log(user)
+
     if (user && (password == user.password)) {
       return res.json({
         success: true,

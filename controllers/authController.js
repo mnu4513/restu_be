@@ -1,7 +1,5 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
-const axios = require("axios");
 const { sendEmail } = require("../utils/email");
 
 let otpStore = {}; // in-memory OTP store for testing; use Redis in production
@@ -102,10 +100,7 @@ exports.registerUser = async (req, res) => {
     userExists = await User.findOne({ number });
     if (userExists) return res.status(400).json({ success: false, message: "User already exists with this number" });
 
-    const salt = await bcrypt.genSalt(10);
-    const hashed = await bcrypt.hash(password, salt);
-
-    const user = await User.create({ name, email, number, password: hashed });
+    const user = await User.create({ name, email, number, password });
 
     return res.status(201).json({
       success: true,
@@ -123,14 +118,15 @@ exports.registerUser = async (req, res) => {
 
 // Login User
 exports.loginUser = async (req, res) => {
+  console.log('hit aaya')
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ success: false, message: "Email/Phone and password required" });
 
     let user = await User.findOne({ email });
     if (!user) user = await User.findOne({ number: email }); // allow login with phone or email in same field
-
-    if (user && (await bcrypt.compare(password, user.password))) {
+console.log(user)
+    if (user && (password == user.password)) {
       return res.json({
         success: true,
         _id: user._id,

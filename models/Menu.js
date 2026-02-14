@@ -9,6 +9,7 @@ const menuSchema = new mongoose.Schema(
       minlength: [2, "Name must be at least 2 characters"],
       maxlength: [100, "Name must be less than 100 characters"],
     },
+
     description: {
       type: String,
       required: [true, "Description is required"],
@@ -16,34 +17,62 @@ const menuSchema = new mongoose.Schema(
       minlength: [5, "Description must be at least 5 characters"],
       maxlength: [500, "Description must be less than 500 characters"],
     },
-    image: {
+
+    // 🔥 Small image for order/cart/invoice
+    thumbnail: {
       type: String,
-      required: [true, "Image URL is required"],
-      default: "ndqmvqhhh96vp8x80lkf", // fallback
+      required: [true, "Thumbnail image is required"],
     },
+
+    // 🔥 Multiple images for product detail page
+    images: [
+      {
+        type: String,
+      },
+    ],
+
     price: {
       type: Number,
       required: [true, "Price is required"],
       min: [1, "Price must be at least 1"],
     },
+
     discount: {
       type: Number,
       default: 0,
       min: [0, "Discount cannot be negative"],
       max: [100, "Discount cannot exceed 100%"],
     },
+
+    // 🔥 Computed discounted price (optional virtual)
+    finalPrice: {
+      type: Number,
+      default: 0,
+    },
+
     category: {
       type: String,
       required: [true, "Category is required"],
-      enum: ["starter", "main", "dessert", "beverage", "sweet", "other"], // strict categories
+      enum: ["starter", "main", "dessert", "beverage", "sweet", "other"],
       default: "other",
     },
+
     isAvailable: {
       type: Boolean,
-      default: true, // whether item is currently available
+      default: true,
     },
   },
   { timestamps: true }
 );
+
+// 🔥 Auto calculate finalPrice before save
+menuSchema.pre("save", function (next) {
+  if (this.discount > 0) {
+    this.finalPrice = this.price - (this.price * this.discount) / 100;
+  } else {
+    this.finalPrice = this.price;
+  }
+  next();
+});
 
 module.exports = mongoose.model("Menu", menuSchema);

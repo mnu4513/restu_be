@@ -73,77 +73,95 @@ exports.getAllOrders = async (req, res) => {
 exports.updateStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    let order = await Order.findById(req.params.id).populate("user", "name email");
+
+    let order = await Order.findById(req.params.id)
+      .populate("user", "name email");
 
     if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
     }
 
     order.status = status;
     await order.save();
 
-    // ✅ Re-populate full details
+
+    // ================= FULL POPULATION =================
     order = await Order.findById(order._id)
       .populate("user", "name email")
-      .populate("items.menuItem", "name price discount");
-
-    const userId = order.user._id.toString();
-    console.log("🔔 Emitting order update for user:", order.user._id);
-    emitOrderUpdate(userId, order); // 👈 force string // 👈 send update
+      .populate("items.menuItem", "name price discount thumbnail");
 
 
-    // ✅ Send email to user only on Delivered / Cancelled
-    if (status === "Delivered") {
-      await sendEmail(
-        order.user.email,
-        "🎉 Your Order Has Been Delivered!",
-        `
-        <h2>Hi ${order.user.name},</h2>
-        <p>Your order <strong>${order._id}</strong> has been successfully delivered.</p>
-        <p>We hope you enjoy your meal 🍽️</p>
-        <p><strong>Total:</strong> ₹${order.totalPrice}</p>
-        `
-      );
-    } else if (status === "Cancelled") {
-      await sendEmail(
-        order.user.email,
-        "❌ Your Order Has Been Cancelled",
-        `
-        <h2>Hi ${order.user.name},</h2>
-        <p>We’re sorry, but your order <strong>${order._id}</strong> has been cancelled.</p>
-        <p>If you have any questions, feel free to contact support.</p>
-        `
-      );
-    }
+    // ================= SOCKET UPDATE =================
+    emitOrderUpdate(order.user._id.toString(), order);
 
-    // ✅ Send email to admin only on Delivered / Cancelled
-    if (status === "Delivered") {
-      await sendEmail(
-        "fkkhem@gmail.com",
-        "🎉 Your Order Has Been Delivered!",
-        `
-        <h2>Hi ${order.user.name},</h2>
-        <p>Your order <strong>${order._id}</strong> has been successfully delivered.</p>
-        <p>We hope you enjoy your meal 🍽️</p>
-        <p><strong>Total:</strong> ₹${order.totalPrice}</p>
-        `
-      );
-    } else if (status === "Cancelled") {
-      await sendEmail(
-        "fkkhem@gmail.com",
-        "lappu.singh@yandex.com",
-        "❌ Your Order Has Been Cancelled",
-        `
-        <h2>Hi ${order.user.name},</h2>
-        <p>We’re sorry, but your order <strong>${order._id}</strong> has been cancelled.</p>
-        <p>If you have any questions, feel free to contact support.</p>
-        `
-      );
-    }
+
+    // =====================================================
+    // BUILD ITEMS HTML WITH THUMBNAIL
+    // =====================================================
+    const itemsHtml = order.items.map(item => {
+
+      const product = item.menuItem;
+
+      const finalPrice =
+        product.price - (product.price * (product.discount || 0)) / 100;
+
+      return `
+      <tr>
+        <td style="padding:10px; border-bottom:1px solid #eee;">
+          <img src="${product.thumbnail}" width="60" height="60"
+          style="border-radius:8px; object-fit:cover;" />
+        </td>
+
+        <td style="padding:10px; border-bottom:1px solid #eee;">
+          ${product.name}
+        </td>
+
+        <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">
+          ${item.quantity}
+        </td>
+
+        <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">
+          ₹${finalPrice}
+        </td>
+      </tr>
+      `;
+    }).join("");
+
+
+    // ================= EMAIL IMPORT =================
+    const {
+      userOrderStatusEmail,
+      adminOrderStatusEmail
+    } = require("../utils/emailTemplates");
+
+
+    // ================= SEND USER EMAIL =================
+    await sendEmail(
+      order.user.email,
+      `Order ${order.status} - ${process.env.APP_NAME}`,
+      userOrderStatusEmail(order, order.user, itemsHtml)
+    );
+
+
+    // ================= SEND ADMIN EMAIL =================
+    await sendEmail(
+      process.env.ADMIN_EMAIL,
+      `Order ${order.status} - ${order._id}`,
+      adminOrderStatusEmail(order, order.user, itemsHtml)
+    );
+
 
     res.json({ success: true, order });
+
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
+
 

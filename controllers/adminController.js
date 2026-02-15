@@ -87,81 +87,68 @@ exports.updateStatus = async (req, res) => {
     order.status = status;
     await order.save();
 
-
-    // ================= FULL POPULATION =================
+    // ===== FULL POPULATION =====
     order = await Order.findById(order._id)
       .populate("user", "name email")
       .populate("items.menuItem", "name price discount thumbnail");
 
-
-    // ================= SOCKET UPDATE =================
+    // ===== SOCKET UPDATE =====
     emitOrderUpdate(order.user._id.toString(), order);
 
-
-    // =====================================================
-    // BUILD ITEMS HTML WITH THUMBNAIL
-    // =====================================================
+    // ===== BUILD ITEMS HTML =====
     const itemsHtml = order.items.map(item => {
-
       const product = item.menuItem;
-
       const finalPrice =
         product.price - (product.price * (product.discount || 0)) / 100;
 
       return `
       <tr>
-        <td style="padding:10px; border-bottom:1px solid #eee;">
+        <td style="padding:10px;border-bottom:1px solid #eee;">
           <img src="${product.thumbnail}" width="60" height="60"
-          style="border-radius:8px; object-fit:cover;" />
+          style="border-radius:8px;object-fit:cover;" />
         </td>
-
-        <td style="padding:10px; border-bottom:1px solid #eee;">
+        <td style="padding:10px;border-bottom:1px solid #eee;">
           ${product.name}
         </td>
-
-        <td style="padding:10px; border-bottom:1px solid #eee; text-align:center;">
+        <td style="padding:10px;border-bottom:1px solid #eee;text-align:center;">
           ${item.quantity}
         </td>
-
-        <td style="padding:10px; border-bottom:1px solid #eee; text-align:right;">
+        <td style="padding:10px;border-bottom:1px solid #eee;text-align:right;">
           ₹${finalPrice}
         </td>
       </tr>
       `;
     }).join("");
 
-
-    // ================= EMAIL IMPORT =================
     const {
       userOrderStatusEmail,
       adminOrderStatusEmail
     } = require("../utils/emailTemplates");
 
+    // ===== SEND USER EMAIL =====
+    await sendEmail({
+      to: order.user.email,
+      subject: `Order ${order.status} - ${process.env.APP_NAME}`,
+      html: userOrderStatusEmail(order, order.user, itemsHtml)
+    });
 
-    // ================= SEND USER EMAIL =================
-    await sendEmail(
-      order.user.email,
-      `Order ${order.status} - ${process.env.APP_NAME}`,
-      userOrderStatusEmail(order, order.user, itemsHtml)
-    );
-
-
-    // ================= SEND ADMIN EMAIL =================
-    await sendEmail(
-      process.env.ADMIN_EMAIL,
-      `Order ${order.status} - ${order._id}`,
-      adminOrderStatusEmail(order, order.user, itemsHtml)
-    );
-
+    // ===== SEND ADMIN EMAIL =====
+    await sendEmail({
+      to: process.env.ADMIN_EMAIL,
+      subject: `Order ${order.status} - ${order._id}`,
+      html: adminOrderStatusEmail(order, order.user, itemsHtml)
+    });
 
     res.json({ success: true, order });
 
   } catch (err) {
+    console.error("updateStatus error:", err);
     res.status(500).json({
       success: false,
       message: err.message,
     });
   }
 };
+
 
 

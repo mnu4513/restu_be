@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const Menu = require("../models/Menu");
 const Address = require("../models/Address");
+const { generateInvoiceBuffer } = require("../utils/generateInvoice");
 
 const { protect } = require("../middleware/authMiddleware");
 const { sendEmail } = require("../utils/email");
@@ -207,19 +208,27 @@ router.post("/verify", protect, async (req, res) => {
 
 
     // ================= SEND USER EMAIL =================
-    await sendEmail(
-      req.user.email,
-      `Order Confirmed - ${process.env.APP_NAME}`,
-      userOrderEmail(populatedOrder, req.user, itemsHtml)
-    );
+    const pdfBuffer = await generateInvoiceBuffer(populatedOrder, req.user);
+
+await sendEmail({
+  to: req.user.email,
+  subject: `Order Confirmed - ${process.env.APP_NAME}`,
+  html: userOrderEmail(populatedOrder, req.user, itemsHtml),
+  attachments: [
+    {
+      filename: `invoice-${populatedOrder._id}.pdf`,
+      content: pdfBuffer.toString("base64")
+    }
+  ]
+});
 
 
     // ================= SEND ADMIN EMAIL =================
-    await sendEmail(
-      process.env.ADMIN_EMAIL,
-      `New Order Received - ${order._id}`,
-      adminOrderEmail(populatedOrder, req.user, itemsHtml)
-    );
+  await sendEmail({
+  to: process.env.ADMIN_EMAIL,
+  subject: `New Order Received - ${order._id}`,
+  html: adminOrderEmail(populatedOrder, req.user, itemsHtml)
+});
 
 
     res.json({

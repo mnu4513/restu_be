@@ -19,23 +19,33 @@ const canRequestOtp = (email) => {
 exports.sendOtp = async (req, res) => {
   try {
     const { email, name } = req.body;
+
+    // ================= VALIDATION =================
     if (!email) {
-      return res.status(400).json({ success: false, message: "E-mail required" });
-    }
-
-    if (!name) {
-      return res.status(400).json({ success: false, message: "Name required" });
-    }
-
-    if (!canRequestOtp(email)) {
-      return res.status(429).json({
+      return res.status(400).json({
         success: false,
-        message: "OTP recently requested. Please wait a bit.",
+        message: "Email is required"
       });
     }
 
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Name is required"
+      });
+    }
+
+    // ================= RATE LIMIT =================
+    if (!canRequestOtp(email)) {
+      return res.status(429).json({
+        success: false,
+        message: "OTP recently requested. Please wait before trying again."
+      });
+    }
+
+    // ================= GENERATE OTP =================
     const otp = generateOtp();
-    const expires = Date.now() + 5 * 60 * 1000; // 5 minutes TTL
+    const expires = Date.now() + 5 * 60 * 1000; // 5 minutes
 
     otpStore[email] = {
       otp: Number(otp),
@@ -44,25 +54,22 @@ exports.sendOtp = async (req, res) => {
       lastRequestedAt: Date.now(),
     };
 
-    // ✅ Professional HTML Email Template
+    // ================= EMAIL TEMPLATE =================
     const emailHtml = `
     <div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:40px 0;">
       <div style="max-width:500px; margin:auto; background:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
         
-        <!-- Header -->
         <div style="background:#2563eb; color:white; text-align:center; padding:20px;">
           <h2 style="margin:0;">Account Verification</h2>
         </div>
 
-        <!-- Body -->
         <div style="padding:30px; color:#333;">
           <p style="font-size:16px;">Hello <strong>${name}</strong>,</p>
 
           <p style="font-size:15px;">
-            Thank you for registering with us. Please use the One-Time Password (OTP) below to complete your registration.
+            Thank you for registering. Please use the One-Time Password (OTP) below to complete your verification.
           </p>
 
-          <!-- OTP Box -->
           <div style="text-align:center; margin:30px 0;">
             <div style="
               display:inline-block;
@@ -79,34 +86,50 @@ exports.sendOtp = async (req, res) => {
           </div>
 
           <p style="font-size:14px; color:#555;">
-            This OTP is valid for <strong>10 minutes</strong>. Please do not share it with anyone.
+            This OTP is valid for <strong>5 minutes</strong>. Please do not share it with anyone.
           </p>
 
           <p style="font-size:14px; color:#555;">
             If you did not request this OTP, please ignore this email.
           </p>
 
-          <p style="margin-top:30px;">Best regards,<br><strong>Your Company Team</strong></p>
+          <p style="margin-top:30px;">
+            Best regards,<br>
+            <strong>${process.env.APP_NAME || "Your Company"}</strong>
+          </p>
         </div>
 
-        <!-- Footer -->
         <div style="background:#f9fafb; text-align:center; padding:15px; font-size:12px; color:#888;">
-        <a href="https://restufe.vercel.app" target=_blank>© ${new Date().getFullYear()} Your Company. All rights reserved.</a>
+          <a href="https://restufe.vercel.app" target="_blank" style="text-decoration:none;color:#888;">
+            © ${new Date().getFullYear()} ${process.env.APP_NAME || "Your Company"}
+          </a>
         </div>
 
       </div>
     </div>
     `;
 
-    await sendEmail(email, "Your OTP for Registration", emailHtml);
+    // ================= SEND EMAIL =================
+    await sendEmail({
+      to: email,
+      subject: "Your OTP for Registration",
+      html: emailHtml
+    });
 
-    return res.json({ success: true, message: "OTP sent via E-mail" });
+    return res.json({
+      success: true,
+      message: "OTP sent successfully to your email"
+    });
 
   } catch (err) {
-    console.error("sendOtp error:", err?.response?.data || err?.message || err);
-    return res.status(500).json({ success: false, message: "Failed to send OTP" });
+    console.error("sendOtp error:", err?.message || err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send OTP"
+    });
   }
 };
+
 
 
 exports.verifyOtp = async (req, res) => {

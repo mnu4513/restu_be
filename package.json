@@ -16,6 +16,7 @@
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
+    "pdfkit": "^0.17.2",
     "razorpay": "^2.9.6",
     "resend": "^6.9.2",
     "socket.io": "^4.8.1",

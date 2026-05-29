@@ -15,8 +15,8 @@ const router = express.Router();
 router.post("/", protect, addAddress);          // Add new address
 router.get("/", protect, getAddresses);         // Get all addresses
 router.get("/default", protect, getDefaultAddress); // Get default address
+router.put("/:id/default", protect, setDefaultAddress); // Set default address
 router.put("/:id", protect, updateAddress);     // Update address
 router.delete("/:id", protect, deleteAddress);  // Delete address
-router.put("/:id/default", protect, setDefaultAddress);
 
 module.exports = router;

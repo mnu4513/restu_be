@@ -18,13 +18,13 @@ const menuSchema = new mongoose.Schema(
       maxlength: [500, "Description must be less than 500 characters"],
     },
 
-    // 🔥 Small image for order/cart/invoice
+    // Small image for order/cart/invoice
     thumbnail: {
       type: String,
       required: [true, "Thumbnail image is required"],
     },
 
-    // 🔥 Multiple images for product detail page
+    // Multiple images for product detail page
     images: [
       {
         type: String,
@@ -44,17 +44,53 @@ const menuSchema = new mongoose.Schema(
       max: [100, "Discount cannot exceed 100%"],
     },
 
-    // 🔥 Computed discounted price (optional virtual)
+    // Calculated discounted price
     finalPrice: {
       type: Number,
       default: 0,
     },
 
+    // Major category
     category: {
       type: String,
       required: [true, "Category is required"],
-      enum: ["starter", "main", "dessert", "beverage", "sweet", "other"],
-      default: "other",
+      enum: {
+        values: ["food", "store"],
+        message: "Category must be either 'food' or 'store '",
+      },
+    },
+
+    // Sub-category
+    subCategory: {
+      type: String,
+      required: [true, "Sub-category is required"],
+      enum: {
+        values: [
+          // Food
+          "starter",
+          "main",
+          "dessert",
+          "beverage",
+          "sweet",
+          "snack",
+
+          // Store
+          "toy",
+          "stationery",
+          "grocery",
+          "personal_care",
+          "grooming",
+          "clothing",
+          "footwear",
+          "household",
+          "electronics",
+
+          // Common
+          "other",
+        ],
+        message:
+          "Invalid sub-category. Please select a valid sub-category.",
+      },
     },
 
     isAvailable: {
@@ -62,17 +98,15 @@ const menuSchema = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// 🔥 Auto calculate finalPrice before save
-menuSchema.pre("save", function (next) {
-  if (this.discount > 0) {
-    this.finalPrice = this.price - (this.price * this.discount) / 100;
-  } else {
-    this.finalPrice = this.price;
-  }
-  next();
+// Automatically calculate finalPrice before saving
+menuSchema.pre("save", function () {
+  this.finalPrice =
+    this.price - (this.price * this.discount) / 100;
 });
 
 module.exports = mongoose.model("Menu", menuSchema);

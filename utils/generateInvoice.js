@@ -14,7 +14,7 @@ exports.generateInvoiceBuffer = (order, user) => {
       .fillColor("#0f172a")
       .fontSize(22)
       .font("Helvetica-Bold")
-      .text(process.env.APP_NAME || "Food App", { align: "center" });
+      .text(process.env.APP_NAME, { align: "center" });
 
     doc
       .moveDown(0.3)

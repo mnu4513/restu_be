@@ -14,7 +14,7 @@ exports.sendEmail = async ({
   try {
 
     const response = await resend.emails.send({
-      from: from || process.env.MAIL_FROM || "shop@infounix.com",
+      from: from || process.env.MAIL_FROM,
       to,
       subject,
       html,

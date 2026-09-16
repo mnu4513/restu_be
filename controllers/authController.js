@@ -18,22 +18,17 @@ const canRequestOtp = (email) => {
 
 exports.sendOtp = async (req, res) => {
   try {
-    const { email, name } = req.body;
+    const { name, email} = req.body;
 
-    // ================= VALIDATION =================
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required"
-      });
-    }
+// ================= VALIDATION =================
+if (!name) return res.status(400).json({ success: false, message: "Name required" });
+if (!/^[a-zA-Z\s]+$/.test(name)) return res.status(400).json({ success: false, message: "Name must contain only letters and spaces" });
+if (name.trim().length < 3) return res.status(400).json({ success: false, message: "Name must be at least 3 characters" });
+if (name.trim().length > 30) return res.status(400).json({ success: false, message: "Name must be less than 30 characters" });
+if (!email) return res.status(400).json({ success: false, message: "E-mail required" });
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, message: "Invalid E-mail format" });
 
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: "Name is required"
-      });
-    }
+
 
     // ================= RATE LIMIT =================
     if (!canRequestOtp(email)) {
@@ -169,16 +164,24 @@ exports.verifyOtp = async (req, res) => {
 exports.registerUser = async (req, res) => {
   try {
     const { name, email, number, password } = req.body;
+  
+    // Validation
     if (!name) return res.status(400).json({ success: false, message: "Name is required" });
+    if (name.trim().length < 3) return res.status(400).json({ success: false, message: "Name must be at least 3 characters" });
+    if (name.trim().length > 30) return res.status(400).json({ success: false, message: "Name must be less than 30 characters" });
+    if (!/^[a-zA-Z\s]+$/.test(name)) return res.status(400).json({ success: false, message: "Name must contain only letters and spaces" });
     if (!email) return res.status(400).json({ success: false, message: "E-mail is required" });
-    if (!number) return res.status(400).json({ success: false, message: "Phone is required" });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, message: "Invalid E-mail format" });
+    if (!number) return res.status(400).json({ success: false, message: "Phone number is required" });
+    if (!/^\d{10}$/.test(number)) return res.status(400).json({ success: false, message: "Phone number must be 10 digits" });
     if (!password) return res.status(400).json({ success: false, message: "Password is required" });
+    if (password.length < 8) return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
 
     let userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ success: false, message: "User already exists with this E-mail" });
+    if (userExists) return res.status(429).json({ success: false, message: "User already exists with this E-mail" });
 
     userExists = await User.findOne({ number });
-    if (userExists) return res.status(400).json({ success: false, message: "User already exists with this number" });
+    if (userExists) return res.status(429).json({ success: false, message: "User already exists with this number" });
 
     const user = await User.create({ name, email, number, password });
 
@@ -191,7 +194,6 @@ exports.registerUser = async (req, res) => {
       token: generateToken(user._id),
     });
   } catch (err) {
-    console.error("registerUser error:", err?.message || err);
     return res.status(500).json({ success: false, message: "Failed to register user" });
   }
 };
@@ -201,11 +203,15 @@ exports.loginUser = async (req, res) => {
   console.log('hit aaya')
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ success: false, message: "Email/Phone and password required" });
+// ================ VALIDATION =================
+    if (!email) return res.status(400).json({ success: false, message: "E-mail/Phone is required" });
+    if (!password) return res.status(400).json({ success: false, message: "Password is required" });
+    if (password.length < 8) return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
 
     let user = await User.findOne({ email });
     if (!user) user = await User.findOne({ number: email }); // allow login with phone or email in same field
 
+    // For testing, we are using plain text password comparison. In production, use hashed passwords.
     if (user && (password == user.password)) {
       return res.json({
         success: true,
@@ -220,7 +226,6 @@ exports.loginUser = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid email/phone or password" });
     }
   } catch (err) {
-    console.error("loginUser error:", err?.message || err);
     return res.status(500).json({ success: false, message: "Failed to login" });
   }
 };

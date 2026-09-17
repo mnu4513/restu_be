@@ -19,11 +19,13 @@ const orderRoutes = require("./routes/orderRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const addressRoutes = require("./routes/addressRoutes");
+const deliveryRoutes = require("./routes/deliveryRoutes");
 const imageRoutes = require("./routes/imageRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/order", orderRoutes);
+app.use("/api/delivery", deliveryRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/addresses", addressRoutes);
